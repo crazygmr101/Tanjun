@@ -165,6 +165,7 @@ def build(session: nox.Session) -> None:
 
 @nox.session(reuse_venv=True)
 def publish(session: nox.Session, test: bool = False) -> None:
+    check_versions(session)
     session.install("flit")
 
     env: dict[str, str] = {}

@@ -65,6 +65,7 @@ if typing.TYPE_CHECKING:
 
 _InjectorClientT = typing.TypeVar("_InjectorClientT", bound="InjectorClient")
 _T = typing.TypeVar("_T")
+_OtherT = typing.TypeVar("_OtherT")
 CallbackSig = collections.Callable[..., tanjun_abc.MaybeAwaitableT[_T]]
 """Type-hint of a injector callback.
 
@@ -251,7 +252,7 @@ class CallbackDescriptor(typing.Generic[_T]):
 
             else:
                 assert parameter.default.type is not None
-                descriptors[name] = Descriptor(type=parameter.default.type)
+                descriptors[name] = Descriptor(type=parameter.default.type, default=parameter.default.default)
 
         self._descriptors = descriptors
 
@@ -328,23 +329,28 @@ class CallbackDescriptor(typing.Generic[_T]):
         return typing.cast(_T, result)
 
 
-class TypeDescriptor(typing.Generic[_T]):
-    __slots__ = ("_type",)
+class TypeDescriptor(typing.Generic[_T, _OtherT]):
+    __slots__ = ("_default", "_type")
 
-    def __init__(self, type_: _TypeT[_T], /) -> None:
+    def __init__(self, type_: _TypeT[_T], /, *, default: UndefinedOr[_OtherT] = UNDEFINED) -> None:
+        self._default = default
         self._type = type_
 
     @property
     def type(self) -> _TypeT[_T]:
         return self._type  # type: ignore # TODO: pyright bug
 
-    async def resolve_with_command_context(self, ctx: tanjun_abc.Context, /) -> _T:
+    async def resolve_with_command_context(self, ctx: tanjun_abc.Context, /) -> typing.Union[_T, _OtherT]:
         if isinstance(ctx, AbstractInjectionContext):
             return await self.resolve(ctx)
 
+        if self._default is not UNDEFINED:
+            assert not isinstance(self._default, Undefined)
+            return self._default
+
         raise RuntimeError("Type injector cannot be resolved without anm injection client")
 
-    async def resolve(self, ctx: AbstractInjectionContext, /) -> _T:
+    async def resolve(self, ctx: AbstractInjectionContext, /) -> typing.Union[_T, _OtherT]:
         if dependency := ctx.injection_client.get_type_dependency(self._type):
             if (cached_result := ctx.get_cached_result(dependency.callback)) is not UNDEFINED:
                 assert not isinstance(cached_result, Undefined)
@@ -358,10 +364,14 @@ class TypeDescriptor(typing.Generic[_T]):
             assert not isinstance(special_case, Undefined)
             return special_case
 
+        if self._default is not UNDEFINED:
+            assert not isinstance(self._default, Undefined)
+            return self._default
+
         raise errors.MissingDependencyError(f"Couldn't resolve injected type {self._type} to actual value") from None
 
 
-class Descriptor(typing.Generic[_T]):
+class Descriptor(typing.Generic[_T, _OtherT]):
     __slots__ = ("_callback", "_type")
 
     def __init__(
@@ -369,17 +379,21 @@ class Descriptor(typing.Generic[_T]):
         *,
         callback: typing.Optional[CallbackSig[_T]] = None,
         type: typing.Optional[_TypeT[_T]] = None,  # noqa A002
+        default: UndefinedOr[_OtherT] = UNDEFINED,
     ) -> None:
         if callback is None:
             if type is None:
                 raise ValueError("Either callback or type must be specified")
 
             self._callback: typing.Optional[CallbackDescriptor[_T]] = None
-            self._type: typing.Optional[TypeDescriptor[_T]] = TypeDescriptor(type)
+            self._type: typing.Optional[TypeDescriptor[_T, _OtherT]] = TypeDescriptor(type, default=default)
             return
 
         if type is not None:
             raise ValueError("Only one of type or callback should be passed")
+
+        if default is not UNDEFINED:
+            raise ValueError("Default may only be specified for a type descriptor")
 
         self._callback = CallbackDescriptor(callback)
         self._type = None
@@ -429,14 +443,15 @@ class Descriptor(typing.Generic[_T]):
 _TypeT = type[_T]
 
 
-class Injected(typing.Generic[_T]):
-    __slots__ = ("callback", "type")
+class Injected(typing.Generic[_T, _OtherT]):
+    __slots__ = ("default", "callback", "type")
 
     def __init__(
         self,
         *,
         callback: typing.Optional[CallbackSig[_T]] = None,
         type: typing.Optional[_TypeT[_T]] = None,  # noqa: A002
+        default: UndefinedOr[_OtherT] = UNDEFINED,
     ) -> None:  # TODO: add default/factory to this?
         if callback is None and type is None:
             raise ValueError("Must specify one of `callback` or `type`")
@@ -444,6 +459,10 @@ class Injected(typing.Generic[_T]):
         if callback is not None and type is not None:
             raise ValueError("Only one of `callback` or `type` can be specified")
 
+        if default is not UNDEFINED and callable is not None:
+            raise ValueError("`default` can only be specified alongside `type`.")
+
+        self.default = default
         self.callback = callback
         self.type = type
 
@@ -452,7 +471,8 @@ def injected(
     *,
     callback: typing.Optional[CallbackSig[_T]] = None,
     type: typing.Optional[_TypeT[_T]] = None,  # noqa: A002
-) -> Injected[_T]:
+    default: UndefinedOr[_OtherT] = UNDEFINED,
+) -> Injected[_T, _OtherT]:
     """Decare a keyword-argument as requiring an injected dependency.
 
     Parameters
@@ -469,13 +489,19 @@ def injected(
         Unlike `callback`, `type` is resolved using the injection client and
         therefore requires that dependency injection is implemented on a context
         level.
+    default: UndefinedOr[_OtherT]
+        The default value to use if the type dependency couldn't be resolved.
+
+        If not provided then a `RuntimeError` will be raised when the type
+        dependency fails to resolve.
 
     Raises
     ------
     ValueError
         If both `callback` and `type` are specified or if neither is specified.
+        If `default` is specified when `callback` is specified.
     """
-    return Injected(callback=callback, type=type)  # type: ignore  # TODO: This is a pyright bug
+    return Injected(callback=callback, type=type, default=default)  # type: ignore  # TODO: This is a pyright bug
 
 
 class InjectorClient:
@@ -485,7 +511,7 @@ class InjectorClient:
 
     def __init__(self) -> None:
         self._callback_overrides: dict[CallbackSig[typing.Any], CallbackDescriptor[typing.Any]] = {}
-        self._special_case_types: typing.Dict[type[typing.Any], typing.Any] = {InjectorClient: self, type(self): self}
+        self._special_case_types: dict[type[typing.Any], typing.Any] = {InjectorClient: self, type(self): self}
         self._type_dependencies: dict[type[typing.Any], CallbackDescriptor[typing.Any]] = {}
 
     def add_type_dependency(self: _InjectorClientT, type_: type[_T], callback: CallbackSig[_T], /) -> _InjectorClientT:
