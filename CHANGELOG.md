@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Bumped minimum Hikari version to 2.0.0.dev102.
+- Consistently raise ValueError instead of LookupErrors in places where a value is being removed.
+
+### Fixed
+- Actually call Command.bind_client and bind_component in the component add command methods and
+  specifically SlashCommand.bind_client in Component.bind_client.
+- Return the command object from Component.with_command methods.
 
 ### Fixed
 - Automatic deferral is now also cancelled in SlashContext.create_initial_response.
@@ -18,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Small typing fixes made while setting pyright to strict.
 
 ### Removed
-- suppress_exceptions from Client.dispatch_client_callback cause it was half-arsed and didn't make sense.
+- suppress_exceptions from Client.dispatch_client_callback cause it was poorly implemented and didn't make sense.
 
 ## [2.0.0a4] - 2021-09-17
 ### Added
@@ -30,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - renamed "conversion.parse_datetime" to "conversion.to_datetime".
-- `Client.__init__` now allows `hikari.SnowflakeishOr[hikari.PartialGuild] | None` for set_global_commands
+- `Client.__init__` now allows `hikari.SnowflakeishOr[hikari.PartialGuild] | None` for set_global_commands.
 
 ### Removed
 - BaseConverter.bind_client, bind_component, get_from_type, implementations, cache_bound, is_inheritable

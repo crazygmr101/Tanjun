@@ -1862,11 +1862,11 @@ class ExecutableCommand(abc.ABC, typing.Generic[ContextT]):
         """
 
     @abc.abstractmethod
-    def bind_client(self, client: Client, /) -> None:
+    def bind_client(self: _T, client: Client, /) -> _T:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def bind_component(self, component: Component, /) -> None:
+    def bind_component(self: _T, component: Component, /) -> _T:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -1917,6 +1917,10 @@ class ExecutableCommand(abc.ABC, typing.Generic[ContextT]):
         ----------
         check : CheckSig
             The check to remove.
+
+        Raises
+        ------
+        ValueError if the provided check isn't found.
         """
 
     @abc.abstractmethod
@@ -2104,6 +2108,10 @@ class SlashCommandGroup(BaseSlashCommand, abc.ABC):
         ----------
         command : BaseSlashCommand
             The command to remove.
+
+        Raises
+        ------
+        ValueError if the provided command isn't found.
         """
 
     @abc.abstractmethod
@@ -2237,6 +2245,11 @@ class MessageCommandGroup(MessageCommand, abc.ABC):
         ----------
         command : MessageCommand
             The command to remove.
+
+        Raises
+        ------
+        ValueError
+            If the provided command isn't found.
         """
 
     @abc.abstractmethod
@@ -2360,6 +2373,11 @@ class Component(abc.ABC):
         ----------
         command : BaseSlashCommand
             The command to remove.
+
+        Raises
+        ------
+        ValueError
+            If the provided command isn't found.
         """
 
     @typing.overload
@@ -2417,6 +2435,11 @@ class Component(abc.ABC):
         ----------
         command : MessageCommand
             The command to remove.
+
+        Raises
+        ------
+        ValueError
+            If the provided command isn't found.
         """
 
     @typing.overload
@@ -2481,7 +2504,7 @@ class Component(abc.ABC):
 
         Raises
         ------
-        LookupError
+        ValueError
             If the listener is not registered for the provided event.
         """
 
@@ -2504,7 +2527,7 @@ class Component(abc.ABC):
         """
 
     @abc.abstractmethod
-    def bind_client(self, client: Client, /) -> None:
+    def bind_client(self: _T, client: Client, /) -> _T:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -2772,6 +2795,11 @@ class Client(abc.ABC):
         ----------
         component: Component
             The component to remove from this client.
+
+        Raises
+        ------
+        ValueError
+            If the provided component isn't found.
         """
 
     @abc.abstractmethod
@@ -2826,6 +2854,13 @@ class Client(abc.ABC):
             This is case-insensitive.
         callback : MetaEventSigT
             The callback to remove from the client's callbacks.
+
+        Raises
+        ------
+        KeyError
+            If the provided name isn't found.
+        ValueError
+            If the provided callback isn't found.
         """
 
     @abc.abstractmethod
@@ -2890,6 +2925,13 @@ class Client(abc.ABC):
             The event type to remove a listener for.
         callback: ListenerCallbackSig
             The callback to remove.
+
+        Raises
+        ------
+        KeyError
+            If the provided event type isn't found.
+        ValueError
+            If the provided callback isn't found.
         """
 
     @abc.abstractmethod
