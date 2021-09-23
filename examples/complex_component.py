@@ -49,5 +49,5 @@ async def remove_self(
 # components into a bot from a link (assuming the environment has all the
 # right configurations setup.)
 @tanjun.as_loader
-def load_examples(client: tanjun.abc.Client) -> None:
+def load_examples(client: tanjun.Client) -> None:
     client.add_component(component.copy())

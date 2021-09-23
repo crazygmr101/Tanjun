@@ -65,6 +65,11 @@ lint = ["codespell~=2.1.0"]
 publish = ["flit~=3.3"]
 reformat = ["black~=21.7b0", "isort==5.9.3"]
 tests = ["pytest==6.2.5", "pytest-asyncio==0.15.1", "pytest-cov==2.12.1"]
+toml = ["toml~=0.10.2"]
+yaml = ["PyYAML~=5.4.1"]
+
+[project.scripts]
+tanjun = "tanjun.cli:main"
 
 [project.urls]
     homepage = "https://github.com/FasterSpeeding/Tanjun"

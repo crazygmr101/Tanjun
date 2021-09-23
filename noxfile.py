@@ -241,7 +241,7 @@ def test_coverage(session: nox.Session) -> None:
 
 @nox.session(name="type-check", reuse_venv=True)
 def type_check(session: nox.Session) -> None:
-    install_requirements(session, ".[tests]", "-r", "nox-requirements.txt")
+    install_requirements(session, ".[toml, tests, yaml]", "-r", "nox-requirements.txt")
     session.run("pyright", external=True)
 
 

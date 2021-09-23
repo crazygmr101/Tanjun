@@ -112,7 +112,7 @@ async def lower_command(ctx: tanjun.abc.SlashContext) -> None:
 # seconds to execute to avoid errenous behaviour.
 @component.with_command
 @tanjun.as_slash_command("defer", "Lower level command which explicitly defers")
-async def defer_command(ctx: tanjun.abc.SlashContext) -> None:
+async def defer_command(ctx: tanjun.SlashContext) -> None:
     await ctx.defer()
     await asyncio.sleep(5)  # Do some work which may take a while
     # Either edit_initial_response or respond may be used here.
@@ -123,5 +123,5 @@ async def defer_command(ctx: tanjun.abc.SlashContext) -> None:
 # components into a bot from a link (assuming the environment has all the
 # right configurations setup.)
 @tanjun.as_loader
-def load_examples(client: tanjun.abc.Client) -> None:
+def load_examples(client: tanjun.Client) -> None:
     client.add_component(component.copy())
